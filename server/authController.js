@@ -1,0 +1,114 @@
+import asyncHandler from 'express-async-handler';
+import User from './User.js';
+import jwt from 'jsonwebtoken';
+import { getStudentProfileIdentifier, resolveStudentProfileForUser } from './services/studentIdentityService.js';
+
+const generateToken = (id, role) => {
+  return jwt.sign({ user: { id, role } }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '30d',
+  });
+};
+
+const toSafeUser = async (user) => {
+  const studentProfile = await resolveStudentProfileForUser(user, { includeDeleted: true });
+  return {
+    _id: user._id,
+    username: user.username,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    role: user.role,
+    studentId: user.role === 'student'
+      ? getStudentProfileIdentifier(studentProfile) || user.username
+      : null,
+    studentProfileId: studentProfile?._id || null,
+    studentArchived: Boolean(studentProfile?.isDeleted),
+  };
+};
+
+
+// @desc    Register a new staff/user account
+// @route   POST /api/auth/register
+// @access  Public
+const registerUser = asyncHandler(async (req, res) => {
+  const { username, email, password, firstName, lastName } = req.body;
+
+  const userExists = await User.findOne({ email });
+
+  if (userExists) {
+    res.status(400);
+    throw new Error('User already exists');
+  }
+
+  const user = await User.create({
+    username,
+    email,
+    password,
+    firstName,
+    lastName,
+    role: 'student',
+  });
+
+  if (user) {
+    res.status(201).json({
+      token: generateToken(user._id, user.role),
+      user: await toSafeUser(user),
+    });
+  } else {
+    res.status(400);
+    throw new Error('Invalid user data');
+  }
+});
+
+// @desc    Authenticate user & get token
+// @route   POST /api/auth/login
+// @access  Public
+const loginUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  // Force string coercion and strip MongoDB operator chars ($) to block NoSQL injection
+  const rawIdentifier = String(email || '').replace(/[$]/g, '').trim();
+  const rawPassword = String(password || '');
+
+  if (!rawIdentifier || !rawPassword) {
+    res.status(400);
+    throw new Error('Please provide email/username and password');
+  }
+
+  // Escape any regex special characters before using in a RegExp
+  const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const identifier = rawIdentifier.toLowerCase();
+  const user = await User.findOne({
+    $or: [
+      { email: identifier },
+      { username: { $regex: new RegExp(`^${escapeRegex(rawIdentifier)}$`, 'i') } }
+    ]
+  });
+
+  if (user && (await user.comparePassword(rawPassword))) {
+    res.json({
+      token: generateToken(user._id, user.role),
+      user: await toSafeUser(user),
+    });
+  } else {
+    res.status(401);
+    throw new Error('Invalid email or password');
+  }
+});
+
+// @desc    Get current user profile
+// @route   GET /api/auth/profile
+// @access  Private
+const getUserProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select('-password');
+
+  if (user) {
+    res.json(await toSafeUser(user));
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
+});
+
+export { registerUser, loginUser, getUserProfile };

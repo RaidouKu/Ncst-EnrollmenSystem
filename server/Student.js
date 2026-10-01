@@ -1,0 +1,224 @@
+import mongoose from 'mongoose';
+
+const DocumentSchema = new mongoose.Schema(
+  {
+    typeId: { type: String, required: true },
+    fileName: { type: String, required: true },
+    originalName: { type: String, default: '' },
+    uploadedAt: { type: Date, default: Date.now },
+    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  },
+  { _id: false }
+);
+
+const SelectedSubjectSchema = new mongoose.Schema(
+  {
+    subjectId: { type: String, required: true },
+    sectionId: { type: String, required: true },
+    addedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const TuitionLineSchema = new mongoose.Schema(
+  {
+    label: { type: String, required: true },
+    amount: { type: Number, required: true },
+  },
+  { _id: false }
+);
+
+const AuditLogSchema = new mongoose.Schema(
+  {
+    action: { type: String, required: true },
+    user: { type: String, required: true },
+    date: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const WalkInQueueSchema = new mongoose.Schema(
+  {
+    ticketNumber: { type: String, required: true },
+    queueDate: { type: String, required: true },
+    sequence: { type: Number, required: true },
+    status: {
+      type: String,
+      enum: ['waiting', 'called', 'serving', 'skipped', 'completed', 'cancelled'],
+      default: 'waiting',
+    },
+    counterNumber: { type: String, default: null },
+    joinedAt: { type: Date, default: Date.now },
+    calledAt: { type: Date, default: null },
+    servedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    updatedBy: { type: String, default: null },
+  },
+  { _id: false }
+);
+
+const HoldSchema = new mongoose.Schema(
+  {
+    type: { type: String, required: true }, // e.g., 'readmission', 'financial', 'academic'
+    status: { type: String, enum: ['active', 'resolved'], default: 'active' },
+    description: { type: String, default: '' },
+    resolvedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
+const AcademicRecordSchema = new mongoose.Schema(
+  {
+    subjectId: { type: String, required: true },
+    grade: { type: Number, required: true },
+    term: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+const StudentSchema = new mongoose.Schema(
+  {
+    // Human-readable student number (e.g. STU-2026-0001) doubles as the
+    // Mongo primary key so the rest of the app can keep treating `id` as a
+    // plain string identifier, exactly like the old SQLite schema did.
+    _id: { type: String },
+
+    firstName: { type: String, default: '' },
+    lastName: { type: String, default: '' },
+    email: { type: String, default: '', lowercase: true, trim: true },
+    emailVerified: { type: Boolean, default: false },
+    emailOtpHash: { type: String, default: null },
+    emailOtpExpiresAt: { type: Date, default: null },
+    emailOtpLastSentAt: { type: Date, default: null },
+    emailOtpAttempts: { type: Number, default: 0 },
+    phone: { type: String, default: '' },
+    birthDate: { type: String, default: '' },
+    address: { type: String, default: '' },
+
+    studentId: { type: String, default: null },
+    schoolEmail: { type: String, default: null },
+    acceptanceLetterSeen: { type: Boolean, default: false },
+
+
+    enrollmentType: { type: String, default: null },
+    programId: { type: String, default: null },
+    academicTerm: { type: String, default: null },
+    yearLevel: { type: Number, default: 1 },
+    academicRecord: { type: [AcademicRecordSchema], default: [] },
+    holds: { type: [HoldSchema], default: [] },
+    missedSemesters: { type: Number, default: 0 },
+    lastEnrolledTerm: { type: String, default: null },
+
+    // Transferee-specific fields
+    previousSchool: { type: String, default: '' },
+    previousProgram: { type: String, default: '' },
+    yearLevelAtTransfer: { type: String, default: '' },
+    reasonForTransfer: { type: String, default: '' },
+    unitsEarned: { type: String, default: '' },
+
+    status: { 
+      type: String, 
+      enum: [
+        'registration',
+        'documents_submitted',
+        'documents_approved',
+        'documents_rejected',
+        'advising_pending',
+        'advising_approved',
+        'advising_rejected',
+        'payment_pending',
+        'payment_confirmed',
+        'validation_pending',
+        'enrolled'
+      ],
+      default: 'registration' 
+    },
+
+    documents: { type: [DocumentSchema], default: [] },
+    approvedSubjectIds: { type: [String], default: [] },
+    selectedSubjects: { type: [SelectedSubjectSchema], default: [] },
+    scheduleStatus: { type: String, enum: ['draft', 'finalizing', 'finalized'], default: 'draft' },
+    tuitionBreakdown: { type: [TuitionLineSchema], default: [] },
+    totalTuition: { type: Number, default: 0 },
+
+    paymentMethod: { type: String, default: null },
+    paymentStatus: { type: String, default: 'unpaid' },
+    paymentPlan: { type: String, enum: ['full', 'downpayment'], default: 'full' },
+    amountPaid: { type: Number, default: 0 },
+    remainingBalance: { type: Number, default: 0 },
+    paymentReference: { type: String, default: null },
+    receiptNumber: { type: String, default: null },
+    paymentDetails: { type: mongoose.Schema.Types.Mixed, default: {} },
+    walkInQueue: { type: WalkInQueueSchema, default: null },
+    submitDocumentsOnCampus: { type: Boolean, default: false },
+
+    scheduleGenerated: { type: Boolean, default: false },
+    registrationFormGenerated: { type: Boolean, default: false },
+    receiptGenerated: { type: Boolean, default: false },
+    enrolledAt: { type: Date, default: null },
+
+    admissionNotes: { type: String, default: '' },
+    adviserNotes: { type: String, default: '' },
+    subjectChangeRequest: { type: String, default: '' },
+
+    applicantPassword: { type: String, default: null },
+    auditLogs: { type: [AuditLogSchema], default: [] },
+    isDeleted: { type: Boolean, default: false },
+    archivedAt: { type: Date, default: null },
+    archivedReason: { type: String, default: '' },
+    archivedBy: { type: String, default: '' },
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (_doc, ret) => {
+        ret.id = ret._id;
+        delete ret.__v;
+        delete ret.applicantPassword; // Exclude password from API responses
+        delete ret.emailOtpHash;
+        delete ret.emailOtpExpiresAt;
+        delete ret.emailOtpLastSentAt;
+        delete ret.emailOtpAttempts;
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+      transform: (_doc, ret) => {
+        ret.id = ret._id;
+        delete ret.__v;
+        delete ret.applicantPassword;
+        delete ret.emailOtpHash;
+        delete ret.emailOtpExpiresAt;
+        delete ret.emailOtpLastSentAt;
+        delete ret.emailOtpAttempts;
+        return ret;
+      },
+    },
+  }
+);
+
+StudentSchema.index(
+  { studentId: 1 },
+  { unique: true, partialFilterExpression: { studentId: { $type: 'string' } } }
+);
+
+import bcrypt from 'bcryptjs';
+
+StudentSchema.pre('save', async function (next) {
+  if (!this.isModified('applicantPassword') || !this.applicantPassword) {
+    return next();
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.applicantPassword = await bcrypt.hash(this.applicantPassword, salt);
+  next();
+});
+
+StudentSchema.methods.compareApplicantPassword = async function (enteredPassword) {
+  if (!this.applicantPassword) return false;
+  return await bcrypt.compare(enteredPassword, this.applicantPassword);
+};
+
+const Student = mongoose.model('Student', StudentSchema);
+export default Student;
